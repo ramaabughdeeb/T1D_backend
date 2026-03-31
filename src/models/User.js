@@ -8,6 +8,19 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     role: { type: String, required: true },
     birthDate: { type: Date, required: true },
+    password: {
+  type: String,
+  required: true,
+    },
+  resetCode: {
+  type: String,
+  default: null,
+},
+resetCodeExpires: {
+  type: Date,
+  default: null,
+},
+
   },
   { timestamps: true }
 );
