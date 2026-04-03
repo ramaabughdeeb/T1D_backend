@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-
 const doctorProfileSchema = new mongoose.Schema(
   {
     userId: {
@@ -63,31 +62,18 @@ const doctorProfileSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    cvFileName: {
-      type: String,
-      default: "",
-    },
-
-    patientConnectionMethod: {
+    professionalProofUrl: {
       type: String,
       required: true,
     },
 
-    notifyHighGlucose: {
-      type: Boolean,
-      default: false,
+    cvFileName: {
+      type: String,
+      default: "",
     },
-    notifyLowGlucose: {
-      type: Boolean,
-      default: false,
-    },
-    notifyMissedLogs: {
-      type: Boolean,
-      default: false,
-    },
-    notifyConsultRequests: {
-      type: Boolean,
-      default: false,
+    cvFileUrl: {
+      type: String,
+      default: "",
     },
 
     verificationStatus: {

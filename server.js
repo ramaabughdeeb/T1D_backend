@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-
+const path = require("path");
 const app = express();
 
 // Middleware
@@ -15,6 +15,9 @@ const patientRoutes = require("./src/routes/patient");
 const familyRoutes = require("./src/routes/family");
 const doctorRoutes = require("./src/routes/doctor");
 const nutritionistRoutes = require("./src/routes/nutritionist");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api/doctor", doctorRoutes);
+app.use("/api/nutritionist", nutritionistRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/patient", patientRoutes);

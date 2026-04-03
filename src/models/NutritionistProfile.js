@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-
 const nutritionistProfileSchema = new mongoose.Schema(
   {
     userId: {
@@ -72,31 +71,18 @@ const nutritionistProfileSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    cvFileName: {
-      type: String,
-      default: "",
-    },
-
-    patientConnectionMethod: {
+    professionalProofUrl: {
       type: String,
       required: true,
     },
 
-    notifyAfterMealHighs: {
-      type: Boolean,
-      default: false,
+    cvFileName: {
+      type: String,
+      default: "",
     },
-    notifyNutritionRequests: {
-      type: Boolean,
-      default: false,
-    },
-    notifyMealPlanFollowUp: {
-      type: Boolean,
-      default: false,
-    },
-    notifyFoodAllergyAlerts: {
-      type: Boolean,
-      default: false,
+    cvFileUrl: {
+      type: String,
+      default: "",
     },
 
     verificationStatus: {
