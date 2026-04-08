@@ -4,6 +4,7 @@ const router = express.Router();
 const PatientProfile = require("../models/PatientProfile");
 const User = require("../models/User");
 
+// SAVE PATIENT PROFILE
 router.post("/save-profile", async (req, res) => {
   try {
     const {
@@ -78,6 +79,22 @@ router.post("/save-profile", async (req, res) => {
     });
   } catch (error) {
     console.error("Save patient profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET PATIENT PROFILE BY USER ID
+router.get("/:userId", async (req, res) => {
+  try {
+    const patient = await PatientProfile.findOne({ userId: req.params.userId });
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    res.status(200).json(patient);
+  } catch (error) {
+    console.error("Get patient profile error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });

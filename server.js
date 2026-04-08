@@ -18,6 +18,7 @@ const nutritionistRoutes = require("./src/routes/nutritionist");
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/doctor", doctorRoutes);
 app.use("/api/nutritionist", nutritionistRoutes);
+app.use('/api/patient', patientRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/patient", patientRoutes);
