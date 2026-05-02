@@ -5,6 +5,7 @@ const cors = require("cors");
 const path = require("path");
 const app = express();
 
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -21,11 +22,18 @@ const aiActivityRoutes = require("./src/routes/aiActivityRoutes");
 app.use("/api/ai-activity", aiActivityRoutes);
 app.use('/api/ai-report', aiReportRoutes);
 app.use('/api/glucose', glucoseRoutes);
+const profileRoutes = require('./src/routes/profileRoutes');
+const aiRoutes = require('./src/routes/aiRoutes');
+const mealRoutes = require("./src/routes/meals");
+const mealReportRoutes = require("./src/routes/mealReports");
+app.use("/api/meal-reports", mealReportRoutes);
+app.use("/api/meals", mealRoutes);
+app.use('/api/profile', profileRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/doctor", doctorRoutes);
 app.use("/api/nutritionist", nutritionistRoutes);
 app.use('/api/patient', patientRoutes);
-
+app.use('/api/ai', aiRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/family", familyRoutes);
