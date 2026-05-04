@@ -51,18 +51,54 @@ router.get('/:userId', async (req, res) => {
       profileData = await ParentProfile.findOne({ userId });
     }
 
-    res.json({
-      fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-      email: user.email || '',
-      role: user.role || '',
-      age: calculateAge(user.birthDate),
-      weight: profileData?.weight || null,
-      height: profileData?.height || null,
-      doctorName,
-      doctorSpecialty,
-    });
+  res.json({
+  fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+  email: user.email || '',
+  role: user.role || '',
+  age: calculateAge(user.birthDate),
+
+  weight: profileData?.weight || null,
+  height: profileData?.height || null,
+
+  doctorName,
+  doctorSpecialty,
+
+  carbRatio: profileData?.carbRatio || '',
+  correctionFactor: profileData?.correctionFactor || '',
+  lantusDose: profileData?.lantusDose || null,
+  hasFoodAllergy: profileData?.hasFoodAllergy || false,
+  allergyDetails: profileData?.allergyDetails || '',
+});
   } catch (error) {
     console.error('Error fetching profile:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+router.put('/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { height, weight } = req.body;
+
+    const updatedProfile = await PatientProfile.findOneAndUpdate(
+      { userId },
+      {
+        height,
+        weight,
+      },
+      { new: true }
+    );
+
+    if (!updatedProfile) {
+      return res.status(404).json({ message: 'Patient profile not found' });
+    }
+
+    res.json({
+      message: 'Profile updated successfully',
+      height: updatedProfile.height,
+      weight: updatedProfile.weight,
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

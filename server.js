@@ -19,6 +19,8 @@ const nutritionistRoutes = require("./src/routes/nutritionist");
 const glucoseRoutes = require('./src/routes/glucose');
 const aiReportRoutes = require('./src/routes/aiReportRoutes');
 const aiActivityRoutes = require("./src/routes/aiActivityRoutes");
+const waterRoutes = require('./src/routes/waterRoutes');
+app.use('/api/water', waterRoutes);
 app.use("/api/ai-activity", aiActivityRoutes);
 app.use('/api/ai-report', aiReportRoutes);
 app.use('/api/glucose', glucoseRoutes);
