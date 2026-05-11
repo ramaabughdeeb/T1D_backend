@@ -36,7 +36,6 @@ exports.getReadingsByUser = async (req, res) => {
     const { userId } = req.params;
     const { from, to } = req.query;
 
-    // Hide readings that were previously soft-deleted
     const deletedDocs = await DeletedGlucoseReading.find({ userId })
       .select('readingId')
       .lean();
@@ -97,9 +96,6 @@ exports.getReadingById = async (req, res) => {
   }
 };
 
-// Disabled by design:
-// Glucose readings are treated as medical log records.
-// We do not update the original time-series reading directly.
 exports.updateReading = async (req, res) => {
   return res.status(405).json({
     message:
@@ -118,6 +114,10 @@ exports.saveLowTreatment = async (req, res) => {
       subtitle,
       customText,
       reminderEnabled,
+      carbsNeeded,
+      selectedCarbs,
+      imageUrl,
+      imageQuery,
     } = req.body;
 
     const deletedReading = await DeletedGlucoseReading.findOne({
@@ -159,18 +159,22 @@ exports.saveLowTreatment = async (req, res) => {
     await LowTreatment.updateOne(
       { readingId },
       {
-        $set: {
-          readingId,
-          userId: reading.userId,
-          type,
-          presetKey: presetKey || null,
-          title: title || '',
-          subtitle: subtitle || '',
-          customText: customText || '',
-          reminderEnabled:
-            typeof reminderEnabled === 'boolean' ? reminderEnabled : true,
-          treatedAt: new Date(),
-        },
+     $set: {
+  readingId,
+  userId: reading.userId,
+  type,
+  presetKey: presetKey || null,
+  title: title || '',
+  subtitle: subtitle || '',
+  customText: customText || '',
+  imageUrl: imageUrl || '',
+  imageQuery: imageQuery || '',
+  reminderEnabled:
+    typeof reminderEnabled === 'boolean' ? reminderEnabled : true,
+  carbsNeeded: Number(carbsNeeded) || 0,
+  selectedCarbs: Number(selectedCarbs) || 0,
+  treatedAt: new Date(),
+},
       },
       {
         upsert: true,
@@ -195,8 +199,113 @@ exports.saveLowTreatment = async (req, res) => {
   }
 };
 
-// Disabled by design:
-// We do not physically delete medical readings from the time-series log.
+exports.getLowTreatmentSuggestions = async (req, res) => {
+  try {
+    const { carbsNeeded, weight } = req.body;
+
+    if (!carbsNeeded) {
+      return res.status(400).json({
+        message: 'carbsNeeded is required',
+      });
+    }
+
+    const targetCarbs = Number(carbsNeeded) || 15;
+
+    const prompt = `
+You are helping a Type 1 diabetes patient treat low blood glucose.
+
+The patient needs exactly about ${targetCarbs} grams of FAST-ACTING carbohydrates.
+Patient weight: ${weight || 'unknown'} kg.
+
+Give exactly 6 SIMPLE fast-acting carbohydrate options.
+
+Rules:
+- Return ONLY valid JSON array.
+- No markdown.
+- No explanation.
+- Do NOT include meals, recipes, steps, insulin, calories, or ingredients.
+- Do NOT suggest chocolate, cake, peanut butter, nuts, fried food, milk, yogurt, or fatty foods.
+- Each option must be close to ${targetCarbs}g carbs.
+- Use simple emergency low-glucose options only.
+- No duplicate items.
+- amount must be a short practical amount like "180 ml", "5 tablets", "1 tbsp".
+
+Return exactly this JSON shape:
+[
+  {
+    "title": "Apple Juice",
+    "amount": "180 ml",
+    "carbs": ${targetCarbs},
+    "image_query": "apple juice"
+  }
+]
+`;
+
+    const response = await fetch(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return res.status(500).json({
+        message: 'AI failed to return suggestions',
+        details: data,
+      });
+    }
+
+    let suggestions;
+
+    try {
+      suggestions = JSON.parse(content);
+    } catch (e) {
+      return res.status(500).json({
+        message: 'AI returned invalid JSON',
+        raw: content,
+      });
+    }
+
+    if (!Array.isArray(suggestions)) {
+      return res.status(500).json({
+        message: 'AI response is not an array',
+        raw: suggestions,
+      });
+    }
+
+    suggestions = suggestions
+      .filter((item) => item && item.title && item.amount)
+      .slice(0, 6)
+      .map((item) => ({
+        title: item.title,
+        amount: item.amount,
+        carbs: Number(item.carbs) || targetCarbs,
+        image_query: item.image_query || item.title,
+      }));
+
+    res.status(200).json({
+      suggestions,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to generate suggestions',
+      error: error.message,
+    });
+  }
+};
+
 exports.deleteReading = async (req, res) => {
   return res.status(405).json({
     message:
