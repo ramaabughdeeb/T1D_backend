@@ -1,0 +1,50 @@
+const mongoose = require('mongoose');
+
+const nutritionistAppointmentSchema = new mongoose.Schema(
+  {
+    patientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    nutritionistId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    visitType: {
+      type: String,
+      enum: ['online', 'clinic'],
+      required: true,
+    },
+    day: {
+      type: String,
+      required: true,
+    },
+    time: {
+      type: String,
+      required: true,
+    },
+    meetingLink: {
+    type: String,
+    default: '',
+   },
+   googleEventId: {
+    type: String,
+     default: '',
+   },
+ status: {
+  type: String,
+  enum: ['booked', 'cancelled', 'completed'],
+  default: 'booked',
+},
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model(
+  'NutritionistAppointment',
+  nutritionistAppointmentSchema
+);
