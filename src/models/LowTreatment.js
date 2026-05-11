@@ -47,9 +47,31 @@ const lowTreatmentSchema = new mongoose.Schema(
       trim: true,
     },
 
+    imageUrl: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    imageQuery: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
     reminderEnabled: {
       type: Boolean,
       default: true,
+    },
+
+    carbsNeeded: {
+      type: Number,
+      default: 0,
+    },
+
+    selectedCarbs: {
+      type: Number,
+      default: 0,
     },
 
     treatedAt: {

@@ -37,6 +37,8 @@ const patientProfileSchema = new mongoose.Schema(
     lunchDose: { type: Number, default: null },
     dinnerDose: { type: Number, default: null },
     lantusDose: { type: Number, default: null },
+    lantusTime: { type: String, default: "" },
+
 
     correctionFactor: { type: String, default: "" },
     carbRatio: { type: String, default: "" },

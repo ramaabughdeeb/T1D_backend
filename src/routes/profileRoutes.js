@@ -66,6 +66,7 @@ router.get('/:userId', async (req, res) => {
   carbRatio: profileData?.carbRatio || '',
   correctionFactor: profileData?.correctionFactor || '',
   lantusDose: profileData?.lantusDose || null,
+  lantusTime: profileData?.lantusTime || '',
   hasFoodAllergy: profileData?.hasFoodAllergy || false,
   allergyDetails: profileData?.allergyDetails || '',
 });
