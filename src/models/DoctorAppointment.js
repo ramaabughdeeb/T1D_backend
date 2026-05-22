@@ -40,6 +40,14 @@ const doctorAppointmentSchema = new mongoose.Schema(
       enum: ['booked', 'cancelled', 'completed'],
       default: 'booked',
     },
+    startTime: {
+  type: String,
+  default: '',
+},
+endTime: {
+  type: String,
+  default: '',
+},
   },
   { timestamps: true }
 );
