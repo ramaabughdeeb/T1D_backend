@@ -24,6 +24,15 @@ const nutritionistAppointmentRoutes = require('./src/routes/nutritionistAppointm
 const googleRoutes = require('./src/routes/googleRoutes');
 const doctorAppointmentRoutes = require('./src/routes/doctorAppointmentRoutes');
 const messageRoutes = require('./src/routes/messages');
+const nutritionistMealPlansRoutes = require('./src/routes/nutritionistMealPlans');
+const nutritionistAvailabilitiesRoutes = require('./src/routes/nutritionistAvailabilities');
+const nutritionistDashboardRoutes = require('./src/routes/nutritionistDashboard');
+app.use('/api/nutritionist-dashboard', nutritionistDashboardRoutes);
+app.use(
+  '/api/nutritionist-availabilities',
+  nutritionistAvailabilitiesRoutes
+);
+app.use('/api/nutritionist-meal-plans', nutritionistMealPlansRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/doctor-appointments', doctorAppointmentRoutes);
 app.use('/api/nutritionist-appointments', nutritionistAppointmentRoutes);

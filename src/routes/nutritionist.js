@@ -162,5 +162,88 @@ router.post("/save-profile", async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+router.get("/profile/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select(
+      "firstName lastName email role"
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const profile = await NutritionistProfile.findOne({ userId });
+
+    return res.status(200).json({
+      user,
+      profile,
+    });
+  } catch (error) {
+    console.error("Get nutritionist profile error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+router.put('/profile/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const {
+      firstName,
+      lastName,
+      phone,
+      workplace,
+      specialty,
+      yearsOfExperience,
+    } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        firstName,
+        lastName,
+      },
+      { new: true }
+    ).select('firstName lastName email role');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        message: 'User not found',
+      });
+    }
+
+    const updatedProfile = await NutritionistProfile.findOneAndUpdate(
+      { userId },
+      {
+        phone,
+        workplace,
+        specialty,
+        yearsOfExperience,
+      },
+      {
+        new: true,
+        upsert: true,
+      }
+    );
+
+    return res.status(200).json({
+      message: 'Profile updated successfully',
+      user: updatedUser,
+      profile: updatedProfile,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to update nutritionist profile',
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;
