@@ -263,5 +263,26 @@ router.delete('/:appointmentId', async (req, res) => {
     });
   }
 });
+// يعرض كل الحجوزات الخاصة بأخصائي التغذية
+router.get('/nutritionist/:nutritionistId', async (req, res) => {
+  try {
+    const { nutritionistId } = req.params;
+
+    const appointments = await NutritionistAppointment.find({
+      nutritionistId,
+    })
+      .populate('patientId', 'firstName lastName email role')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      appointments,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get nutritionist appointments',
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;
