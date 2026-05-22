@@ -36,6 +36,8 @@ const profileRoutes = require('./src/routes/profileRoutes');
 const aiRoutes = require('./src/routes/aiRoutes');
 const mealRoutes = require("./src/routes/meals");
 const mealReportRoutes = require("./src/routes/mealReports");
+const doctorDashboardRoutes = require("./src/routes/doctorDashboard");
+app.use("/api/doctor-dashboard", doctorDashboardRoutes);
 app.use("/api/meal-reports", mealReportRoutes);
 app.use("/api/meals", mealRoutes);
 app.use('/api/profile', profileRoutes);

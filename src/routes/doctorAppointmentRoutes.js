@@ -53,7 +53,143 @@ router.get('/doctors', async (req, res) => {
     });
   }
 });
+// إضافة أوقات متاحة للطبيب
+router.post('/availability', async (req, res) => {
+ try {
+    const { doctorId, visitType, day, slots, startTime, endTime } = req.body;
 
+    if (
+      !doctorId ||
+      !visitType ||
+      !day ||
+      !Array.isArray(slots) ||
+      slots.length === 0
+    ) {
+      return res.status(400).json({
+        message: 'doctorId, visitType, day, and slots are required',
+      });
+    }
+
+    if (!['online', 'clinic'].includes(visitType)) {
+      return res.status(400).json({
+        message: 'visitType must be online or clinic',
+      });
+    }
+
+    const availability = await DoctorAvailability.create({
+      doctorId,
+      visitType,
+      day,
+      slots,
+      startTime: startTime || slots[0],
+      endTime: endTime || slots[slots.length - 1],
+    });
+
+    return res.status(201).json({
+      message: 'Availability added successfully',
+      availability,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to add availability',
+      error: error.message,
+    });
+  }
+});
+
+
+router.get('/availability-all/:doctorId', async (req, res) => {
+  try {
+    const availability = await DoctorAvailability.find({
+      doctorId: req.params.doctorId,
+    }).sort({ day: 1, visitType: 1 });
+
+    res.json(availability);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get all doctor availability',
+      error: error.message,
+    });
+  }
+});
+// تعديل وقت متاح للطبيب
+router.put('/availability/:availabilityId', async (req, res) => {
+  try {
+    const { availabilityId } = req.params;
+    const { visitType, day, startTime, endTime, slots } = req.body;
+
+    if (
+      !visitType ||
+      !day ||
+      !startTime ||
+      !endTime ||
+      !Array.isArray(slots) ||
+      slots.length === 0
+    ) {
+      return res.status(400).json({
+        message: 'visitType, day, startTime, endTime, and slots are required',
+      });
+    }
+
+    if (!['online', 'clinic'].includes(visitType)) {
+      return res.status(400).json({
+        message: 'visitType must be online or clinic',
+      });
+    }
+
+    const availability = await DoctorAvailability.findById(availabilityId);
+
+    if (!availability) {
+      return res.status(404).json({
+        message: 'Availability not found',
+      });
+    }
+
+    availability.visitType = visitType;
+    availability.day = day;
+    availability.startTime = startTime;
+    availability.endTime = endTime;
+    availability.slots = slots;
+
+    await availability.save();
+
+    res.json({
+      message: 'Availability updated successfully',
+      availability,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to update availability',
+      error: error.message,
+    });
+  }
+});
+
+// حذف وقت متاح للطبيب
+router.delete('/availability/:availabilityId', async (req, res) => {
+  try {
+    const { availabilityId } = req.params;
+
+    const availability = await DoctorAvailability.findByIdAndDelete(
+      availabilityId
+    );
+
+    if (!availability) {
+      return res.status(404).json({
+        message: 'Availability not found',
+      });
+    }
+
+    res.json({
+      message: 'Availability deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to delete availability',
+      error: error.message,
+    });
+  }
+});
 // مواعيد الطبيب مع إخفاء المحجوز
 router.get('/availability/:doctorId', async (req, res) => {
   try {
@@ -178,6 +314,27 @@ router.post('/', async (req, res) => {
   }
 });
 
+// يعرض كل مواعيد طبيب معين مع بيانات المرضى
+router.get('/doctor/:doctorId', async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    const appointments = await DoctorAppointment.find({
+      doctorId,
+      status: 'booked',
+    })
+      .populate('patientId', 'firstName lastName email birthDate role')
+      .sort({ createdAt: -1 });
+
+    res.json(appointments);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get doctor appointments',
+      error: error.message,
+    });
+  }
+});
+
 // تعديل موعد طبيب
 router.put('/:appointmentId', async (req, res) => {
   try {
@@ -219,11 +376,32 @@ router.put('/:appointmentId', async (req, res) => {
       });
     }
 
-    appointment.visitType = visitType;
-    appointment.day = day;
-    appointment.time = time;
+  appointment.visitType = visitType;
+appointment.day = day;
+appointment.time = time;
 
-    await appointment.save();
+if (visitType === 'online' && !appointment.meetingLink) {
+  const startDateTime = new Date().toISOString();
+  const endDateTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+  const meetEvent = await createGoogleMeetEvent({
+    summary: 'Doctor Online Appointment',
+    description: `Online appointment with doctor on ${day} at ${time}`,
+    startDateTime,
+    endDateTime,
+    attendees: [],
+  });
+
+  appointment.meetingLink = meetEvent.meetingLink;
+  appointment.googleEventId = meetEvent.googleEventId;
+}
+
+if (visitType === 'clinic') {
+  appointment.meetingLink = '';
+  appointment.googleEventId = '';
+}
+
+await appointment.save();
 
     res.json({
       message: 'Doctor appointment updated successfully',
