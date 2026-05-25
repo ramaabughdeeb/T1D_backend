@@ -75,5 +75,29 @@ router.get('/nutritionist/:nutritionistId', async (req, res) => {
     });
   }
 });
+// Delete availability
+router.delete('/:availabilityId', async (req, res) => {
+  try {
+    const { availabilityId } = req.params;
 
+    const deleted = await NutritionistAvailability.findByIdAndDelete(
+      availabilityId
+    );
+
+    if (!deleted) {
+      return res.status(404).json({
+        message: 'Availability not found',
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Availability deleted successfully',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to delete availability',
+      error: error.message,
+    });
+  }
+});
 module.exports = router;

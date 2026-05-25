@@ -4,7 +4,6 @@ const router = express.Router();
 const NutritionistAppointment = require('../models/NutritionistAppointment');
 const NutritionistAvailability = require('../models/NutritionistAvailability');
 const NutritionistProfile = require('../models/NutritionistProfile');
-const User = require('../models/User');
 
 const {
   createGoogleMeetEvent,
@@ -15,7 +14,7 @@ router.get('/active/:patientId', async (req, res) => {
   try {
     const appointment = await NutritionistAppointment.findOne({
       patientId: req.params.patientId,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
     }).populate('nutritionistId', 'firstName lastName email role');
 
     if (!appointment) {
@@ -43,7 +42,7 @@ router.get('/active/:patientId', async (req, res) => {
 router.get('/nutritionists', async (req, res) => {
   try {
     const profiles = await NutritionistProfile.find({
-      verificationStatus: 'pending',
+      verificationStatus: 'approved'
     }).populate('userId', 'firstName lastName email role');
 
     res.json(profiles);
@@ -72,7 +71,7 @@ router.get('/availability/:nutritionistId', async (req, res) => {
 
     const bookedAppointments = await NutritionistAppointment.find({
       nutritionistId: req.params.nutritionistId,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
       ...(visitType ? { visitType } : {}),
     }).lean();
 
@@ -101,6 +100,7 @@ router.get('/availability/:nutritionistId', async (req, res) => {
     });
   }
 });
+
 // إنشاء حجز جديد
 router.post('/', async (req, res) => {
   try {
@@ -112,10 +112,20 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const existingPatientAppointment = await NutritionistAppointment.findOne({
-      patientId,
-      status: 'booked',
-    });
+    if (!['online', 'clinic'].includes(visitType)) {
+      return res.status(400).json({
+        message: 'visitType must be online or clinic',
+      });
+    }
+
+    const isOnline = visitType === 'online';
+
+    // المريض ما يكون عنده موعد أخصائي نشط
+    const existingPatientAppointment =
+      await NutritionistAppointment.findOne({
+        patientId,
+        status: { $in: ['pending_payment', 'booked'] },
+      });
 
     if (existingPatientAppointment) {
       return res.status(400).json({
@@ -123,12 +133,13 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // الوقت ما يكون مأخوذ
     const slotTaken = await NutritionistAppointment.findOne({
       nutritionistId,
       visitType,
       day,
       time,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
     });
 
     if (slotTaken) {
@@ -140,7 +151,7 @@ router.post('/', async (req, res) => {
     let meetingLink = '';
     let googleEventId = '';
 
-    if (visitType === 'online') {
+    if (isOnline) {
       const startDateTime = new Date().toISOString();
       const endDateTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -164,10 +175,20 @@ router.post('/', async (req, res) => {
       time,
       meetingLink,
       googleEventId,
+
+      // Payment logic
+      status: isOnline ? 'pending_payment' : 'booked',
+      paymentRequired: isOnline,
+      paymentStatus: isOnline ? 'pending' : 'not_required',
+      paymentAmount: isOnline ? 10 : 0,
+      paymentMethod: '',
+      paidAt: null,
     });
 
     res.status(201).json({
-      message: 'Appointment booked successfully',
+      message: isOnline
+        ? 'Nutritionist appointment created. Payment is required.'
+        : 'Nutritionist appointment booked successfully',
       appointment,
     });
   } catch (error) {
@@ -187,6 +208,12 @@ router.put('/:appointmentId', async (req, res) => {
     if (!visitType || !day || !time) {
       return res.status(400).json({
         message: 'visitType, day and time are required',
+      });
+    }
+
+    if (!['online', 'clinic'].includes(visitType)) {
+      return res.status(400).json({
+        message: 'visitType must be online or clinic',
       });
     }
 
@@ -210,7 +237,7 @@ router.put('/:appointmentId', async (req, res) => {
       visitType,
       day,
       time,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
     });
 
     if (slotTaken) {
@@ -222,6 +249,45 @@ router.put('/:appointmentId', async (req, res) => {
     appointment.visitType = visitType;
     appointment.day = day;
     appointment.time = time;
+
+    const isOnline = visitType === 'online';
+
+    if (isOnline && !appointment.meetingLink) {
+      const startDateTime = new Date().toISOString();
+      const endDateTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+      const meetEvent = await createGoogleMeetEvent({
+        summary: 'Nutritionist Online Appointment',
+        description: `Online appointment with nutritionist on ${day} at ${time}`,
+        startDateTime,
+        endDateTime,
+        attendees: [],
+      });
+
+      appointment.meetingLink = meetEvent.meetingLink;
+      appointment.googleEventId = meetEvent.googleEventId;
+    }
+
+    if (visitType === 'clinic') {
+      appointment.meetingLink = '';
+      appointment.googleEventId = '';
+
+      appointment.status = 'booked';
+      appointment.paymentRequired = false;
+      appointment.paymentStatus = 'not_required';
+      appointment.paymentAmount = 0;
+      appointment.paymentMethod = '';
+      appointment.paidAt = null;
+    }
+
+    if (visitType === 'online' && appointment.paymentStatus !== 'paid') {
+      appointment.status = 'pending_payment';
+      appointment.paymentRequired = true;
+      appointment.paymentStatus = 'pending';
+      appointment.paymentAmount = 10;
+      appointment.paymentMethod = '';
+      appointment.paidAt = null;
+    }
 
     await appointment.save();
 
@@ -263,6 +329,7 @@ router.delete('/:appointmentId', async (req, res) => {
     });
   }
 });
+
 // يعرض كل الحجوزات الخاصة بأخصائي التغذية
 router.get('/nutritionist/:nutritionistId', async (req, res) => {
   try {
@@ -270,6 +337,7 @@ router.get('/nutritionist/:nutritionistId', async (req, res) => {
 
     const appointments = await NutritionistAppointment.find({
       nutritionistId,
+      status: { $in: ['pending_payment', 'booked'] },
     })
       .populate('patientId', 'firstName lastName email role')
       .sort({ createdAt: -1 });

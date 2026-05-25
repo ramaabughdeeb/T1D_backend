@@ -14,7 +14,7 @@ router.get('/active/:patientId', async (req, res) => {
   try {
     const appointment = await DoctorAppointment.findOne({
       patientId: req.params.patientId,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
     }).populate('doctorId', 'firstName lastName email role');
 
     if (!appointment) {
@@ -42,7 +42,7 @@ router.get('/active/:patientId', async (req, res) => {
 router.get('/doctors', async (req, res) => {
   try {
     const profiles = await DoctorProfile.find({
-      verificationStatus: 'pending',
+      verificationStatus: 'approved'
     }).populate('userId', 'firstName lastName email role');
 
     res.json(profiles);
@@ -206,10 +206,10 @@ router.get('/availability/:doctorId', async (req, res) => {
     const availability = await DoctorAvailability.find(filter).lean();
 
     const bookedAppointments = await DoctorAppointment.find({
-      doctorId: req.params.doctorId,
-      status: 'booked',
-      ...(visitType ? { visitType } : {}),
-    }).lean();
+  doctorId: req.params.doctorId,
+  status: { $in: ['pending_payment', 'booked'] },
+  ...(visitType ? { visitType } : {}),
+}).lean();
 
     const bookedSet = new Set(
       bookedAppointments.map((app) => `${app.day}-${app.time}`)
@@ -248,9 +248,19 @@ router.post('/', async (req, res) => {
       });
     }
 
+    if (!['online', 'clinic'].includes(visitType)) {
+      return res.status(400).json({
+        message: 'visitType must be online or clinic',
+      });
+    }
+
+    const isOnline = visitType === 'online';
+
+    // المريض ما يكون عنده موعد طبيب نشط
+    // اعتبرنا pending_payment كمان نشط عشان ما يحجز 10 مرات بدون دفع
     const existingPatientAppointment = await DoctorAppointment.findOne({
       patientId,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
     });
 
     if (existingPatientAppointment) {
@@ -259,12 +269,14 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // الوقت ما يكون مأخوذ
+    // اعتبرنا pending_payment كمان محجوز مؤقتًا
     const slotTaken = await DoctorAppointment.findOne({
       doctorId,
       visitType,
       day,
       time,
-      status: 'booked',
+      status: { $in: ['pending_payment', 'booked'] },
     });
 
     if (slotTaken) {
@@ -276,7 +288,7 @@ router.post('/', async (req, res) => {
     let meetingLink = '';
     let googleEventId = '';
 
-    if (visitType === 'online') {
+    if (isOnline) {
       const startDateTime = new Date().toISOString();
       const endDateTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -300,10 +312,20 @@ router.post('/', async (req, res) => {
       time,
       meetingLink,
       googleEventId,
+
+      // Payment logic
+      status: isOnline ? 'pending_payment' : 'booked',
+      paymentRequired: isOnline,
+      paymentStatus: isOnline ? 'pending' : 'not_required',
+      paymentAmount: isOnline ? 10 : 0,
+      paymentMethod: '',
+      paidAt: null,
     });
 
     res.status(201).json({
-      message: 'Doctor appointment booked successfully',
+      message: isOnline
+        ? 'Doctor appointment created. Payment is required.'
+        : 'Doctor appointment booked successfully',
       appointment,
     });
   } catch (error) {
@@ -313,18 +335,17 @@ router.post('/', async (req, res) => {
     });
   }
 });
-
 // يعرض كل مواعيد طبيب معين مع بيانات المرضى
 router.get('/doctor/:doctorId', async (req, res) => {
   try {
     const { doctorId } = req.params;
 
-    const appointments = await DoctorAppointment.find({
-      doctorId,
-      status: 'booked',
-    })
-      .populate('patientId', 'firstName lastName email birthDate role')
-      .sort({ createdAt: -1 });
+const appointments = await DoctorAppointment.find({
+  doctorId,
+  status: { $in: ['pending_payment', 'booked'] },
+})
+  .populate('patientId', 'firstName lastName email birthDate role')
+  .sort({ createdAt: -1 });
 
     res.json(appointments);
   } catch (error) {
@@ -361,14 +382,14 @@ router.put('/:appointmentId', async (req, res) => {
       });
     }
 
-    const slotTaken = await DoctorAppointment.findOne({
-      _id: { $ne: appointmentId },
-      doctorId: appointment.doctorId,
-      visitType,
-      day,
-      time,
-      status: 'booked',
-    });
+  const slotTaken = await DoctorAppointment.findOne({
+  _id: { $ne: appointmentId },
+  doctorId: appointment.doctorId,
+  visitType,
+  day,
+  time,
+  status: { $in: ['pending_payment', 'booked'] },
+});
 
     if (slotTaken) {
       return res.status(400).json({
@@ -376,11 +397,13 @@ router.put('/:appointmentId', async (req, res) => {
       });
     }
 
-  appointment.visitType = visitType;
+appointment.visitType = visitType;
 appointment.day = day;
 appointment.time = time;
 
-if (visitType === 'online' && !appointment.meetingLink) {
+const isOnline = visitType === 'online';
+
+if (isOnline && !appointment.meetingLink) {
   const startDateTime = new Date().toISOString();
   const endDateTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -399,6 +422,22 @@ if (visitType === 'online' && !appointment.meetingLink) {
 if (visitType === 'clinic') {
   appointment.meetingLink = '';
   appointment.googleEventId = '';
+
+  appointment.status = 'booked';
+  appointment.paymentRequired = false;
+  appointment.paymentStatus = 'not_required';
+  appointment.paymentAmount = 0;
+  appointment.paymentMethod = '';
+  appointment.paidAt = null;
+}
+
+if (visitType === 'online' && appointment.paymentStatus !== 'paid') {
+  appointment.status = 'pending_payment';
+  appointment.paymentRequired = true;
+  appointment.paymentStatus = 'pending';
+  appointment.paymentAmount = 10;
+  appointment.paymentMethod = '';
+  appointment.paidAt = null;
 }
 
 await appointment.save();
