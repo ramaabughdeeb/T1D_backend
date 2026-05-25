@@ -441,5 +441,26 @@ router.delete('/:appointmentId', async (req, res) => {
     });
   }
 });
+// يعرض مواعيد المريض مع الأطباء
+router.get('/patient/:patientId', async (req, res) => {
+  try {
+    const { patientId } = req.params;
 
+    const appointments = await DoctorAppointment.find({
+      patientId,
+      status: 'booked',
+    })
+      .populate('doctorId', 'firstName lastName email role')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      appointments,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get patient doctor appointments',
+      error: error.message,
+    });
+  }
+});
 module.exports = router;

@@ -284,5 +284,26 @@ router.get('/nutritionist/:nutritionistId', async (req, res) => {
     });
   }
 });
+// يعرض مواعيد المريض مع أخصائيين التغذية
+router.get('/patient/:patientId', async (req, res) => {
+  try {
+    const { patientId } = req.params;
 
+    const appointments = await NutritionistAppointment.find({
+      patientId,
+      status: 'booked',
+    })
+      .populate('nutritionistId', 'firstName lastName email role')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      appointments,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Failed to get patient nutritionist appointments',
+      error: error.message,
+    });
+  }
+});
 module.exports = router;
