@@ -135,5 +135,24 @@ router.put('/:planId', async (req, res) => {
     });
   }
 });
+// Get all meal plans for patient
+router.get('/patient/:patientId', async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    const plans = await NutritionistMealPlan.find({ patientId })
+      .populate('nutritionistId', 'firstName lastName email')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      plans,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to get patient meal plans',
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;

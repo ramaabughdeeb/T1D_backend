@@ -10,6 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use("/uploads", express.static(path.join(__dirname, "src", "uploads")));
 // Routes
 const authRoutes = require("./src/routes/auth");
 const patientRoutes = require("./src/routes/patient");
@@ -27,6 +28,10 @@ const messageRoutes = require('./src/routes/messages');
 const nutritionistMealPlansRoutes = require('./src/routes/nutritionistMealPlans');
 const nutritionistAvailabilitiesRoutes = require('./src/routes/nutritionistAvailabilities');
 const nutritionistDashboardRoutes = require('./src/routes/nutritionistDashboard');
+const adminRoutes = require('./src/routes/admin');
+const paymentRoutes = require("./src/routes/paymentRoutes");
+app.use("/api/payments", paymentRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/nutritionist-dashboard', nutritionistDashboardRoutes);
 app.use(
   '/api/nutritionist-availabilities',
