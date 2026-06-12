@@ -30,6 +30,8 @@ const nutritionistAvailabilitiesRoutes = require('./src/routes/nutritionistAvail
 const nutritionistDashboardRoutes = require('./src/routes/nutritionistDashboard');
 const adminRoutes = require('./src/routes/admin');
 const paymentRoutes = require("./src/routes/paymentRoutes");
+const userRoutes = require('./src/routes/userRoutes');
+app.use('/api/users', userRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/nutritionist-dashboard', nutritionistDashboardRoutes);
