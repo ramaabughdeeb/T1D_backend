@@ -14,7 +14,7 @@ router.get('/active/:patientId', async (req, res) => {
   try {
     const appointment = await DoctorAppointment.findOne({
       patientId: req.params.patientId,
-      status: { $in: ['pending_payment', 'booked'] },
+      status: 'booked',
     }).populate('doctorId', 'firstName lastName email role');
 
     if (!appointment) {
@@ -207,7 +207,7 @@ router.get('/availability/:doctorId', async (req, res) => {
 
     const bookedAppointments = await DoctorAppointment.find({
   doctorId: req.params.doctorId,
-  status: { $in: ['pending_payment', 'booked'] },
+  status: 'booked',
   ...(visitType ? { visitType } : {}),
 }).lean();
 
@@ -260,7 +260,7 @@ router.post('/', async (req, res) => {
     // اعتبرنا pending_payment كمان نشط عشان ما يحجز 10 مرات بدون دفع
     const existingPatientAppointment = await DoctorAppointment.findOne({
       patientId,
-      status: { $in: ['pending_payment', 'booked'] },
+      status: 'booked',
     });
 
     if (existingPatientAppointment) {
@@ -276,7 +276,7 @@ router.post('/', async (req, res) => {
       visitType,
       day,
       time,
-      status: { $in: ['pending_payment', 'booked'] },
+      status: 'booked',
     });
 
     if (slotTaken) {
@@ -314,18 +314,17 @@ router.post('/', async (req, res) => {
       googleEventId,
 
       // Payment logic
-      status: isOnline ? 'pending_payment' : 'booked',
-      paymentRequired: isOnline,
-      paymentStatus: isOnline ? 'pending' : 'not_required',
-      paymentAmount: isOnline ? 10 : 0,
-      paymentMethod: '',
-      paidAt: null,
+    // No payment required
+   status: 'booked',
+   paymentRequired: false,
+   paymentStatus: 'not_required',
+   paymentAmount: 0,
+   paymentMethod: '',
+   paidAt: null,
     });
 
     res.status(201).json({
-      message: isOnline
-        ? 'Doctor appointment created. Payment is required.'
-        : 'Doctor appointment booked successfully',
+     message: 'Doctor appointment booked successfully',
       appointment,
     });
   } catch (error) {
@@ -342,7 +341,7 @@ router.get('/doctor/:doctorId', async (req, res) => {
 
 const appointments = await DoctorAppointment.find({
   doctorId,
-  status: { $in: ['pending_payment', 'booked'] },
+   status: 'booked',
 })
   .populate('patientId', 'firstName lastName email birthDate role')
   .sort({ createdAt: -1 });
@@ -388,7 +387,7 @@ router.put('/:appointmentId', async (req, res) => {
   visitType,
   day,
   time,
-  status: { $in: ['pending_payment', 'booked'] },
+  status: 'booked',
 });
 
     if (slotTaken) {
@@ -431,15 +430,14 @@ if (visitType === 'clinic') {
   appointment.paidAt = null;
 }
 
-if (visitType === 'online' && appointment.paymentStatus !== 'paid') {
-  appointment.status = 'pending_payment';
-  appointment.paymentRequired = true;
-  appointment.paymentStatus = 'pending';
-  appointment.paymentAmount = 10;
+if (visitType === 'online') {
+  appointment.status = 'booked';
+  appointment.paymentRequired = false;
+  appointment.paymentStatus = 'not_required';
+  appointment.paymentAmount = 0;
   appointment.paymentMethod = '';
   appointment.paidAt = null;
 }
-
 await appointment.save();
 
     res.json({
